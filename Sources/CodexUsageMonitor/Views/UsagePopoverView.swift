@@ -11,6 +11,7 @@ struct UsagePopoverView: View {
 
   let store: UsageStore
   let settings: SettingsStore
+  let launchAtLogin: LaunchAtLoginStore
   var showsFooter = true
 
   @State private var screen: PopoverScreen
@@ -18,11 +19,13 @@ struct UsagePopoverView: View {
   init(
     store: UsageStore,
     settings: SettingsStore,
+    launchAtLogin: LaunchAtLoginStore,
     showsFooter: Bool = true,
     initialScreen: PopoverScreen = .dashboard
   ) {
     self.store = store
     self.settings = settings
+    self.launchAtLogin = launchAtLogin
     self.showsFooter = showsFooter
     _screen = State(initialValue: initialScreen)
   }
@@ -39,7 +42,11 @@ struct UsagePopoverView: View {
         )
         .padding(PopoverStyle.panelPadding)
       case .settings:
-        MonitorSettingsView(settings: settings, close: closeSettings)
+        MonitorSettingsView(
+          settings: settings,
+          launchAtLogin: launchAtLogin,
+          close: closeSettings
+        )
           .frame(height: PopoverStyle.settingsHeight)
       }
     }

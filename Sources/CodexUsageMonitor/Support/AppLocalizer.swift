@@ -38,6 +38,13 @@ enum LocalizedKey {
   case themeSystem
   case themeLight
   case themeDark
+  case launchAtLogin
+  case launchAtLoginDescription
+  case launchAtLoginToggle
+  case launchAtLoginRequiresApproval
+  case launchAtLoginUnavailable
+  case launchAtLoginOperationFailed
+  case openLoginItemsSettings
   case automaticRefresh
   case automaticRefreshDescription
   case refreshInterval
@@ -148,6 +155,28 @@ struct AppLocalizer {
     case (.simplifiedChinese, .themeLight): "浅色"
     case (.english, .themeDark): "Dark"
     case (.simplifiedChinese, .themeDark): "深色"
+    case (.english, .launchAtLogin): "Launch at login"
+    case (.simplifiedChinese, .launchAtLogin): "开机自启"
+    case (.english, .launchAtLoginDescription):
+      "Start Codex Usage Monitor automatically after you sign in."
+    case (.simplifiedChinese, .launchAtLoginDescription):
+      "登录 macOS 后自动启动 Codex Usage Monitor。"
+    case (.english, .launchAtLoginToggle): "Open at login"
+    case (.simplifiedChinese, .launchAtLoginToggle): "登录时启动"
+    case (.english, .launchAtLoginRequiresApproval):
+      "Approval is required in System Settings."
+    case (.simplifiedChinese, .launchAtLoginRequiresApproval):
+      "需要在“系统设置”的“登录项”中批准。"
+    case (.english, .launchAtLoginUnavailable):
+      "macOS could not find a valid login item for this app."
+    case (.simplifiedChinese, .launchAtLoginUnavailable):
+      "macOS 无法为当前应用找到有效的登录项。"
+    case (.english, .launchAtLoginOperationFailed):
+      "The login item could not be updated."
+    case (.simplifiedChinese, .launchAtLoginOperationFailed):
+      "无法更新登录项，请稍后重试。"
+    case (.english, .openLoginItemsSettings): "Open Login Items"
+    case (.simplifiedChinese, .openLoginItemsSettings): "打开登录项设置"
     case (.english, .automaticRefresh): "Automatic refresh"
     case (.simplifiedChinese, .automaticRefresh): "自动刷新"
     case (.english, .automaticRefreshDescription):

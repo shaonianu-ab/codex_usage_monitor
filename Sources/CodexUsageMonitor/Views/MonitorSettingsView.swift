@@ -2,6 +2,7 @@ import SwiftUI
 
 struct MonitorSettingsView: View {
   let settings: SettingsStore
+  let launchAtLogin: LaunchAtLoginStore
   let close: () -> Void
 
   private var localizer: AppLocalizer {
@@ -21,6 +22,7 @@ struct MonitorSettingsView: View {
         VStack(spacing: 12) {
           LanguageSettingsCard(settings: settings, localizer: localizer)
           AppearanceSettingsCard(settings: settings, localizer: localizer)
+          LaunchAtLoginSettingsCard(store: launchAtLogin, localizer: localizer)
           RefreshSettingsCard(settings: settings, localizer: localizer)
           ThresholdSettingsCard(
             settings: settings,
@@ -40,6 +42,9 @@ struct MonitorSettingsView: View {
         }
         .padding(PopoverStyle.panelPadding)
       }
+    }
+    .task {
+      launchAtLogin.refresh()
     }
   }
 
@@ -69,6 +74,86 @@ struct MonitorSettingsView: View {
     }
     .padding(.horizontal, PopoverStyle.panelPadding)
     .frame(height: 48)
+  }
+}
+
+private struct LaunchAtLoginSettingsCard: View {
+  let store: LaunchAtLoginStore
+  let localizer: AppLocalizer
+
+  var body: some View {
+    VStack(alignment: .leading, spacing: 10) {
+      Label(localizer.text(.launchAtLogin), systemImage: "power")
+        .font(.system(size: 14, weight: .semibold))
+        .foregroundStyle(Color.monitorTextPrimary)
+
+      Text(localizer.text(.launchAtLoginDescription))
+        .font(.system(size: 11.5, weight: .regular))
+        .foregroundStyle(Color.monitorTextMuted)
+        .fixedSize(horizontal: false, vertical: true)
+
+      Divider()
+        .overlay(Color.monitorBorder)
+
+      Toggle(
+        localizer.text(.launchAtLoginToggle),
+        isOn: Binding(
+          get: { store.isOn },
+          set: { store.setEnabled($0) }
+        )
+      )
+      .font(.system(size: 12, weight: .regular))
+      .foregroundStyle(Color.monitorTextSecondary)
+      .toggleStyle(.switch)
+      .controlSize(.small)
+      .tint(Color.monitorGreen)
+      .disabled(!store.canToggle)
+
+      if let statusMessage {
+        HStack(alignment: .firstTextBaseline, spacing: 8) {
+          Label(statusMessage.text, systemImage: statusMessage.icon)
+            .font(.system(size: 11, weight: .regular))
+            .foregroundStyle(statusMessage.color)
+            .fixedSize(horizontal: false, vertical: true)
+
+          Spacer(minLength: 8)
+
+          if store.requiresApproval {
+            Button(localizer.text(.openLoginItemsSettings)) {
+              store.openSystemSettings()
+            }
+            .buttonStyle(PopoverQuietButtonStyle())
+            .font(.system(size: 11, weight: .medium))
+          }
+        }
+      }
+    }
+    .settingsCard()
+  }
+
+  private var statusMessage: (text: String, icon: String, color: Color)? {
+    if store.operationFailed {
+      return (
+        localizer.text(.launchAtLoginOperationFailed),
+        "exclamationmark.circle",
+        .monitorRedText
+      )
+    }
+    if store.requiresApproval {
+      return (
+        localizer.text(.launchAtLoginRequiresApproval),
+        "exclamationmark.triangle",
+        .monitorYellowText
+      )
+    }
+    if store.isUnavailable {
+      return (
+        localizer.text(.launchAtLoginUnavailable),
+        "exclamationmark.circle",
+        .monitorRedText
+      )
+    }
+    return nil
   }
 }
 

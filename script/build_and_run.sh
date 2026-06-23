@@ -8,6 +8,7 @@ BUNDLE_ID="dev.example.CodexUsageMonitor"
 APP_VERSION="1.0.0"
 BUILD_VERSION="1"
 MIN_SYSTEM_VERSION="14.0"
+CODESIGN_IDENTITY="${CODESIGN_IDENTITY:--}"
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 DIST_DIR="$ROOT_DIR/dist"
@@ -23,6 +24,7 @@ LIGHT_SNAPSHOT_PATH="$ROOT_DIR/artifacts/usage-popover-light.png"
 SETTINGS_SNAPSHOT_PATH="$ROOT_DIR/artifacts/settings-popover.png"
 SETTINGS_LIGHT_SNAPSHOT_PATH="$ROOT_DIR/artifacts/settings-popover-light.png"
 SETTINGS_ZH_SNAPSHOT_PATH="$ROOT_DIR/artifacts/settings-popover-zh.png"
+SETTINGS_LIGHT_ZH_SNAPSHOT_PATH="$ROOT_DIR/artifacts/settings-popover-light-zh.png"
 
 pkill -x "$PROCESS_NAME" >/dev/null 2>&1 || true
 
@@ -71,6 +73,9 @@ cat >"$INFO_PLIST" <<PLIST
 </dict>
 </plist>
 PLIST
+
+/usr/bin/codesign --force --sign "$CODESIGN_IDENTITY" "$APP_BUNDLE"
+/usr/bin/codesign --verify --strict "$APP_BUNDLE"
 
 open_app() {
   /usr/bin/open -n "$APP_BUNDLE"
@@ -147,8 +152,19 @@ case "$MODE" in
     echo "snapshot was not created: $SETTINGS_ZH_SNAPSHOT_PATH" >&2
     exit 1
     ;;
+  --snapshot-settings-light-zh|snapshot-settings-light-zh)
+    rm -f "$SETTINGS_LIGHT_ZH_SNAPSHOT_PATH"
+    /usr/bin/open -n "$APP_BUNDLE" --args \
+      --render-settings-snapshot-light-zh "$SETTINGS_LIGHT_ZH_SNAPSHOT_PATH"
+    for _ in {1..50}; do
+      [[ -f "$SETTINGS_LIGHT_ZH_SNAPSHOT_PATH" ]] && exit 0
+      sleep 0.1
+    done
+    echo "snapshot was not created: $SETTINGS_LIGHT_ZH_SNAPSHOT_PATH" >&2
+    exit 1
+    ;;
   *)
-    echo "usage: $0 [run|--debug|--logs|--telemetry|--verify|--snapshot|--snapshot-light|--snapshot-settings|--snapshot-settings-light|--snapshot-settings-zh]" >&2
+    echo "usage: $0 [run|--debug|--logs|--telemetry|--verify|--snapshot|--snapshot-light|--snapshot-settings|--snapshot-settings-light|--snapshot-settings-zh|--snapshot-settings-light-zh]" >&2
     exit 2
     ;;
 esac

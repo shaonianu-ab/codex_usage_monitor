@@ -6,6 +6,7 @@ enum SnapshotRenderer {
   static func write(
     store: UsageStore,
     settings: SettingsStore,
+    launchAtLogin: LaunchAtLoginStore,
     screen: PopoverScreen = .dashboard,
     to outputURL: URL
   ) throws {
@@ -17,6 +18,7 @@ enum SnapshotRenderer {
       rootView: UsagePopoverView(
         store: store,
         settings: settings,
+        launchAtLogin: launchAtLogin,
         initialScreen: screen
       )
     )

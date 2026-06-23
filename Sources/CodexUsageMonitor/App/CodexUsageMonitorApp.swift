@@ -7,7 +7,11 @@ struct CodexUsageMonitorApp: App {
 
   var body: some Scene {
     MenuBarExtra {
-      UsagePopoverView(store: appDelegate.store, settings: appDelegate.settings)
+      UsagePopoverView(
+        store: appDelegate.store,
+        settings: appDelegate.settings,
+        launchAtLogin: appDelegate.launchAtLogin
+      )
     } label: {
       Image(systemName: "chart.bar.fill")
         .accessibilityLabel("Codex Usage Monitor")
@@ -20,6 +24,7 @@ struct CodexUsageMonitorApp: App {
 final class AppDelegate: NSObject, NSApplicationDelegate {
   let store: UsageStore
   let settings: SettingsStore
+  let launchAtLogin: LaunchAtLoginStore
   private let snapshotRequest: SnapshotRequest?
 
   override init() {
@@ -31,10 +36,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         previewLanguage: snapshotRequest.language,
         theme: snapshotRequest.theme
       )
+      launchAtLogin = LaunchAtLoginStore(previewStatus: .notRegistered)
     } else {
       let persistedSettings = SettingsStore()
       settings = persistedSettings
       store = UsageStore(refreshInterval: persistedSettings.refreshInterval)
+      launchAtLogin = LaunchAtLoginStore()
     }
     super.init()
   }
@@ -48,6 +55,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
           try SnapshotRenderer.write(
             store: store,
             settings: settings,
+            launchAtLogin: launchAtLogin,
             screen: snapshotRequest.screen,
             to: URL(fileURLWithPath: snapshotRequest.path)
           )
@@ -72,6 +80,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
       ("--render-settings-snapshot", .settings, .english, .dark),
       ("--render-settings-snapshot-light", .settings, .english, .light),
       ("--render-settings-snapshot-zh", .settings, .simplifiedChinese, .dark),
+      ("--render-settings-snapshot-light-zh", .settings, .simplifiedChinese, .light),
     ]
     for (flag, screen, language, theme) in flags {
       guard let index = arguments.firstIndex(of: flag), arguments.indices.contains(index + 1)
