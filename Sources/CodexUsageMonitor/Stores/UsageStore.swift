@@ -88,8 +88,9 @@ final class UsageStore {
       let now = nowProvider()
       snapshot = UsageSnapshot(
         planType: remote.planType ?? localPlan ?? "unknown",
-        primaryWindow: remote.primaryWindow,
-        secondaryWindow: remote.secondaryWindow,
+        fiveHourWindow: remote.fiveHourWindow,
+        weeklyWindow: remote.weeklyWindow,
+        usageSucceeded: remote.usageSucceeded,
         credits: remote.credits,
         availableCount: remote.availableCount,
         updatedAt: now

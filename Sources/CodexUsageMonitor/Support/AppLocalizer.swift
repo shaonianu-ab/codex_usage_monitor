@@ -10,9 +10,13 @@ enum LocalizedKey {
   case retryRefresh
   case fiveHourRemaining
   case weekRemaining
+  case fiveHourLimit
+  case weeklyLimit
   case lastUpdated
   case remainingUsage
   case usageDataUnavailable
+  case noActiveLimit
+  case noActiveLimitDescription
   case reset
   case rateLimitResets
   case nextExpires
@@ -99,12 +103,21 @@ struct AppLocalizer {
     case (.simplifiedChinese, .fiveHourRemaining): "5 小时剩余"
     case (.english, .weekRemaining): "Week remaining"
     case (.simplifiedChinese, .weekRemaining): "本周剩余"
+    case (.english, .fiveHourLimit): "5-hour limit"
+    case (.simplifiedChinese, .fiveHourLimit): "5 小时限制"
+    case (.english, .weeklyLimit): "Weekly limit"
+    case (.simplifiedChinese, .weeklyLimit): "每周限制"
     case (.english, .lastUpdated): "Last updated"
     case (.simplifiedChinese, .lastUpdated): "上次更新"
     case (.english, .remainingUsage): "Remaining usage"
     case (.simplifiedChinese, .remainingUsage): "剩余用量"
     case (.english, .usageDataUnavailable): "Usage data unavailable"
     case (.simplifiedChinese, .usageDataUnavailable): "用量数据不可用"
+    case (.english, .noActiveLimit): "No active limit"
+    case (.simplifiedChinese, .noActiveLimit): "暂无限制"
+    case (.english, .noActiveLimitDescription):
+      "This usage window is not currently enforced."
+    case (.simplifiedChinese, .noActiveLimitDescription): "当前未启用此用量窗口。"
     case (.english, .reset): "Reset"
     case (.simplifiedChinese, .reset): "重置"
     case (.english, .rateLimitResets): "RATE-LIMIT RESETS"

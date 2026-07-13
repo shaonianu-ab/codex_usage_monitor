@@ -6,8 +6,8 @@ protocol CodexUsageFetching: Sendable {
 
 struct RemoteUsageResult: Sendable, Equatable {
   let planType: String?
-  let primaryWindow: RateLimitWindow?
-  let secondaryWindow: RateLimitWindow?
+  let fiveHourWindow: RateLimitWindow?
+  let weeklyWindow: RateLimitWindow?
   let credits: [RateLimitCredit]
   let availableCount: Int
   let usageSucceeded: Bool
@@ -76,11 +76,12 @@ actor CodexAPIClient: CodexUsageFetching {
 
     let mappedCredits = (credits?.credits ?? []).map(\.model)
       .sorted { $0.expiresAt < $1.expiresAt }
+    let usageWindows = usage?.rateLimit?.normalizedWindows
 
     return RemoteUsageResult(
       planType: usage?.planType,
-      primaryWindow: usage?.rateLimit?.primaryWindow?.model,
-      secondaryWindow: usage?.rateLimit?.secondaryWindow?.model,
+      fiveHourWindow: usageWindows?.fiveHour,
+      weeklyWindow: usageWindows?.weekly,
       credits: mappedCredits,
       availableCount: credits?.availableCount ?? mappedCredits.filter(\.isAvailable).count,
       usageSucceeded: usage != nil,
@@ -205,6 +206,79 @@ struct RateLimitPayload: Decodable, Sendable, Equatable {
     case primaryWindow = "primary_window"
     case secondaryWindow = "secondary_window"
   }
+
+  var normalizedWindows: NormalizedRateLimitWindows {
+    var candidates: [(slot: RateLimitWindowSlot, window: RateLimitWindow)] = []
+    if let primaryWindow {
+      candidates.append((.primary, primaryWindow.model))
+    }
+    if let secondaryWindow {
+      candidates.append((.secondary, secondaryWindow.model))
+    }
+
+    var assignedSlots = Set<RateLimitWindowSlot>()
+    var fiveHour = candidates.first {
+      $0.window.windowSeconds == KnownRateLimitDuration.fiveHours
+    }
+    var weekly = candidates.first {
+      $0.window.windowSeconds == KnownRateLimitDuration.oneWeek
+    }
+    if let fiveHour {
+      assignedSlots.insert(fiveHour.slot)
+    }
+    if let weekly {
+      assignedSlots.insert(weekly.slot)
+    }
+
+    // Preserve the API's traditional slot meanings when duration metadata is
+    // absent or unfamiliar, without allowing a known weekly window in the
+    // primary slot to be mislabeled as the five-hour quota.
+    if fiveHour == nil,
+      let primary = candidates.first(where: {
+        $0.slot == .primary && !assignedSlots.contains($0.slot)
+      })
+    {
+      fiveHour = primary
+      assignedSlots.insert(primary.slot)
+    }
+    if weekly == nil,
+      let secondary = candidates.first(where: {
+        $0.slot == .secondary && !assignedSlots.contains($0.slot)
+      })
+    {
+      weekly = secondary
+      assignedSlots.insert(secondary.slot)
+    }
+
+    for candidate in candidates where !assignedSlots.contains(candidate.slot) {
+      if fiveHour == nil {
+        fiveHour = candidate
+      } else if weekly == nil {
+        weekly = candidate
+      }
+      assignedSlots.insert(candidate.slot)
+    }
+
+    return NormalizedRateLimitWindows(
+      fiveHour: fiveHour?.window,
+      weekly: weekly?.window
+    )
+  }
+}
+
+struct NormalizedRateLimitWindows: Sendable, Equatable {
+  let fiveHour: RateLimitWindow?
+  let weekly: RateLimitWindow?
+}
+
+private enum RateLimitWindowSlot: Hashable {
+  case primary
+  case secondary
+}
+
+private enum KnownRateLimitDuration {
+  static let fiveHours = 5 * 60 * 60
+  static let oneWeek = 7 * 24 * 60 * 60
 }
 
 struct RateLimitWindowPayload: Decodable, Sendable, Equatable {

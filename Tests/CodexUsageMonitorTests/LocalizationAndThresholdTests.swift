@@ -27,6 +27,8 @@ struct LocalizationAndThresholdTests {
     #expect(english.text(.launchAtLogin) == "Launch at login")
     #expect(chinese.text(.launchAtLogin) == "开机自启")
     #expect(chinese.text(.openLoginItemsSettings) == "打开登录项设置")
+    #expect(english.text(.noActiveLimit) == "No active limit")
+    #expect(chinese.text(.noActiveLimit) == "暂无限制")
     #expect(english.format(.refreshSchedule, 45) == "Refreshes every 45 min")
     #expect(chinese.format(.refreshSchedule, 45) == "每 45 分钟刷新")
     #expect(english.message(warning) == "Usage endpoint: Request failed (HTTP 429).")

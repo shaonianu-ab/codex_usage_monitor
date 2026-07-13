@@ -9,8 +9,8 @@ final class UsageStoreTests: XCTestCase {
     let credit = UsageSnapshot.preview.credits[0]
     let result = RemoteUsageResult(
       planType: nil,
-      primaryWindow: nil,
-      secondaryWindow: nil,
+      fiveHourWindow: nil,
+      weeklyWindow: nil,
       credits: [credit],
       availableCount: 1,
       usageSucceeded: false,
@@ -29,12 +29,37 @@ final class UsageStoreTests: XCTestCase {
 
     XCTAssertEqual(store.snapshot?.planType, "plus")
     XCTAssertEqual(store.snapshot?.credits, [credit])
+    XCTAssertEqual(store.snapshot?.fiveHourQuota, .unavailable)
+    XCTAssertEqual(store.snapshot?.weeklyQuota, .unavailable)
     XCTAssertEqual(
       store.message,
       UsageMessage.remote([
         RemoteWarning(endpoint: .usage, error: .httpStatus(404))
       ])
     )
+  }
+
+  func testMissingWindowFromSuccessfulUsageIsAnInactiveLimit() async {
+    let weeklyWindow = UsageSnapshot.preview.weeklyWindow
+    let result = RemoteUsageResult(
+      planType: "plus",
+      fiveHourWindow: nil,
+      weeklyWindow: weeklyWindow,
+      credits: [],
+      availableCount: 0,
+      usageSucceeded: true,
+      creditsSucceeded: true,
+      warnings: []
+    )
+    let store = UsageStore(
+      authProvider: StubAuthProvider(session: authSession),
+      apiClient: StubAPIClient(result: result)
+    )
+
+    await store.refresh()
+
+    XCTAssertEqual(store.snapshot?.fiveHourQuota, .unlimited)
+    XCTAssertEqual(store.snapshot?.weeklyQuota, weeklyWindow.map(UsageQuotaState.limited))
   }
 
   func testManualRefreshAndIntervalChangesResetScheduleFromLatestCompletion() async {
@@ -101,8 +126,8 @@ final class UsageStoreTests: XCTestCase {
   private var successfulResult: RemoteUsageResult {
     RemoteUsageResult(
       planType: "plus",
-      primaryWindow: UsageSnapshot.preview.primaryWindow,
-      secondaryWindow: UsageSnapshot.preview.secondaryWindow,
+      fiveHourWindow: UsageSnapshot.preview.fiveHourWindow,
+      weeklyWindow: UsageSnapshot.preview.weeklyWindow,
       credits: UsageSnapshot.preview.credits,
       availableCount: UsageSnapshot.preview.availableCount,
       usageSucceeded: true,

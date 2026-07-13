@@ -10,6 +10,12 @@ struct RateLimitWindow: Sendable, Equatable {
   }
 }
 
+enum UsageQuotaState: Sendable, Equatable {
+  case limited(RateLimitWindow)
+  case unlimited
+  case unavailable
+}
+
 struct RateLimitCredit: Identifiable, Sendable, Equatable {
   let id: String
   let resetType: String
@@ -26,11 +32,27 @@ struct RateLimitCredit: Identifiable, Sendable, Equatable {
 
 struct UsageSnapshot: Sendable, Equatable {
   let planType: String
-  let primaryWindow: RateLimitWindow?
-  let secondaryWindow: RateLimitWindow?
+  let fiveHourWindow: RateLimitWindow?
+  let weeklyWindow: RateLimitWindow?
+  let usageSucceeded: Bool
   let credits: [RateLimitCredit]
   let availableCount: Int
   let updatedAt: Date
+
+  var fiveHourQuota: UsageQuotaState {
+    quotaState(for: fiveHourWindow)
+  }
+
+  var weeklyQuota: UsageQuotaState {
+    quotaState(for: weeklyWindow)
+  }
+
+  private func quotaState(for window: RateLimitWindow?) -> UsageQuotaState {
+    if let window {
+      return .limited(window)
+    }
+    return usageSucceeded ? .unlimited : .unavailable
+  }
 
   static let preview: UsageSnapshot = {
     let calendar = Calendar(identifier: .gregorian)
@@ -68,16 +90,17 @@ struct UsageSnapshot: Sendable, Equatable {
 
     return UsageSnapshot(
       planType: "plus",
-      primaryWindow: RateLimitWindow(
+      fiveHourWindow: RateLimitWindow(
         usedPercent: 44,
         resetAt: date(2026, 6, 23, 4, 39),
         windowSeconds: 18_000
       ),
-      secondaryWindow: RateLimitWindow(
+      weeklyWindow: RateLimitWindow(
         usedPercent: 23,
         resetAt: date(2026, 6, 29, 18, 38),
         windowSeconds: 604_800
       ),
+      usageSucceeded: true,
       credits: credits,
       availableCount: 2,
       updatedAt: date(2026, 6, 23, 0, 23)

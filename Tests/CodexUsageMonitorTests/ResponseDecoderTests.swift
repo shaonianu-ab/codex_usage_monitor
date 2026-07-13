@@ -26,9 +26,71 @@ final class ResponseDecoderTests: XCTestCase {
     let decoded = try CodexResponseDecoder.decodeUsage(Data(json.utf8))
 
     XCTAssertEqual(decoded.planType, "pro")
-    XCTAssertEqual(decoded.rateLimit?.primaryWindow?.model.remainingPercent, 52)
-    XCTAssertEqual(decoded.rateLimit?.primaryWindow?.windowSeconds, 18_000)
-    XCTAssertEqual(decoded.rateLimit?.secondaryWindow?.model.remainingPercent, 60.75)
+    XCTAssertEqual(decoded.rateLimit?.normalizedWindows.fiveHour?.remainingPercent, 52)
+    XCTAssertEqual(decoded.rateLimit?.normalizedWindows.fiveHour?.windowSeconds, 18_000)
+    XCTAssertEqual(decoded.rateLimit?.normalizedWindows.weekly?.remainingPercent, 60.75)
+  }
+
+  func testClassifiesSingleWeeklyWindowFromPrimarySlot() throws {
+    let json = """
+      {
+        "plan_type": "plus",
+        "rate_limit": {
+          "primary_window": {
+            "used_percent": 81,
+            "reset_at": 1784515500,
+            "limit_window_seconds": 604800
+          }
+        }
+      }
+      """
+
+    let windows = try CodexResponseDecoder.decodeUsage(Data(json.utf8))
+      .rateLimit?.normalizedWindows
+
+    XCTAssertNil(windows?.fiveHour)
+    XCTAssertEqual(windows?.weekly?.remainingPercent, 19)
+    XCTAssertEqual(windows?.weekly?.windowSeconds, 604_800)
+  }
+
+  func testDurationMetadataWinsWhenWindowSlotsAreReversed() throws {
+    let json = """
+      {
+        "rate_limit": {
+          "primary_window": {
+            "used_percent": 30,
+            "limit_window_seconds": 604800
+          },
+          "secondary_window": {
+            "used_percent": 40,
+            "limit_window_seconds": 18000
+          }
+        }
+      }
+      """
+
+    let windows = try CodexResponseDecoder.decodeUsage(Data(json.utf8))
+      .rateLimit?.normalizedWindows
+
+    XCTAssertEqual(windows?.fiveHour?.remainingPercent, 60)
+    XCTAssertEqual(windows?.weekly?.remainingPercent, 70)
+  }
+
+  func testFallsBackToTraditionalSlotsWithoutDurationMetadata() throws {
+    let json = """
+      {
+        "rate_limit": {
+          "primary_window": { "used_percent": 10 },
+          "secondary_window": { "used_percent": 20 }
+        }
+      }
+      """
+
+    let windows = try CodexResponseDecoder.decodeUsage(Data(json.utf8))
+      .rateLimit?.normalizedWindows
+
+    XCTAssertEqual(windows?.fiveHour?.remainingPercent, 90)
+    XCTAssertEqual(windows?.weekly?.remainingPercent, 80)
   }
 
   func testDecodesCreditsWithFractionalDatesAndNullRedemption() throws {

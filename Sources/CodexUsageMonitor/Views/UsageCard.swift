@@ -29,7 +29,8 @@ struct UsageCard: View {
 
       QuotaBlock(
         title: localizer.text(.fiveHourRemaining),
-        window: snapshot.primaryWindow,
+        inactiveTitle: localizer.text(.fiveHourLimit),
+        state: snapshot.fiveHourQuota,
         relativeTo: snapshot.updatedAt,
         thresholds: settings.fiveHourThresholds,
         localizer: localizer
@@ -38,7 +39,8 @@ struct UsageCard: View {
 
       QuotaBlock(
         title: localizer.text(.weekRemaining),
-        window: snapshot.secondaryWindow,
+        inactiveTitle: localizer.text(.weeklyLimit),
+        state: snapshot.weeklyQuota,
         relativeTo: snapshot.updatedAt,
         thresholds: settings.weeklyThresholds,
         localizer: localizer
@@ -64,7 +66,8 @@ struct UsageCard: View {
 
 private struct QuotaBlock: View {
   let title: String
-  let window: RateLimitWindow?
+  let inactiveTitle: String
+  let state: UsageQuotaState
   let relativeTo: Date
   let thresholds: ColorThresholds
   let localizer: AppLocalizer
@@ -72,7 +75,7 @@ private struct QuotaBlock: View {
   var body: some View {
     VStack(alignment: .leading, spacing: 0) {
       HStack(alignment: .firstTextBaseline, spacing: 12) {
-        Text(title)
+        Text(displayedTitle)
           .font(.system(size: 19, weight: .semibold))
           .monospacedDigit()
           .foregroundStyle(Color.monitorTextPrimary)
@@ -81,37 +84,72 @@ private struct QuotaBlock: View {
 
         Spacer(minLength: 12)
 
-        Text(percentText)
-          .font(.system(size: 20, weight: .bold))
-          .monospacedDigit()
-          .foregroundStyle(Color.monitorTextPrimary)
+        quotaValue
       }
 
+      quotaDetails
+    }
+  }
+
+  @ViewBuilder
+  private var quotaValue: some View {
+    switch state {
+    case .limited(let window):
+      Text("\(Int(window.remainingPercent.rounded()))%")
+        .font(.system(size: 20, weight: .bold))
+        .monospacedDigit()
+        .foregroundStyle(Color.monitorTextPrimary)
+    case .unlimited:
+      Label(localizer.text(.noActiveLimit), systemImage: "infinity")
+        .font(.system(size: 12.5, weight: .semibold))
+        .foregroundStyle(Color.monitorGreenText)
+        .padding(.horizontal, 9)
+        .padding(.vertical, 4)
+        .background(Color.monitorGreenSoft)
+        .clipShape(Capsule())
+    case .unavailable:
+      Text("—")
+        .font(.system(size: 20, weight: .bold))
+        .foregroundStyle(Color.monitorTextPrimary)
+        .accessibilityLabel(localizer.text(.usageDataUnavailable))
+    }
+  }
+
+  @ViewBuilder
+  private var quotaDetails: some View {
+    switch state {
+    case .limited(let window):
       UsageProgressBar(
-        value: window?.remainingPercent ?? 0,
-        color: thresholds.level(for: window?.remainingPercent ?? 0).fillColor,
+        value: window.remainingPercent,
+        color: thresholds.level(for: window.remainingPercent).fillColor,
         accessibilityLabel: localizer.text(.remainingUsage)
       )
       .frame(height: PopoverStyle.progressHeight)
       .padding(.top, 8)
 
-      Text(resetText)
+      Text(resetText(for: window))
         .font(.system(size: 12.5, weight: .regular))
         .monospacedDigit()
         .foregroundStyle(Color.monitorTextMuted)
         .lineLimit(1)
         .padding(.top, 7)
-        .help(resetHelp)
+        .help(resetHelp(for: window))
+    case .unlimited:
+      statusDescription(localizer.text(.noActiveLimitDescription))
+    case .unavailable:
+      statusDescription(localizer.text(.usageDataUnavailable))
     }
   }
 
-  private var percentText: String {
-    guard let window else { return "—" }
-    return "\(Int(window.remainingPercent.rounded()))%"
+  private var displayedTitle: String {
+    switch state {
+    case .limited: title
+    case .unlimited, .unavailable: inactiveTitle
+    }
   }
 
-  private var resetText: String {
-    guard let resetAt = window?.resetAt else { return localizer.text(.usageDataUnavailable) }
+  private func resetText(for window: RateLimitWindow) -> String {
+    guard let resetAt = window.resetAt else { return localizer.text(.usageDataUnavailable) }
     let timestamp = UsageFormatting.compactTimestamp(
       resetAt,
       relativeTo: relativeTo,
@@ -120,9 +158,17 @@ private struct QuotaBlock: View {
     return "\(localizer.text(.reset)) \(timestamp)"
   }
 
-  private var resetHelp: String {
-    guard let resetAt = window?.resetAt else { return localizer.text(.usageDataUnavailable) }
+  private func resetHelp(for window: RateLimitWindow) -> String {
+    guard let resetAt = window.resetAt else { return localizer.text(.usageDataUnavailable) }
     return UsageFormatting.fullTimestamp(resetAt, language: localizer.language)
+  }
+
+  private func statusDescription(_ text: String) -> some View {
+    Text(text)
+      .font(.system(size: 12.5, weight: .regular))
+      .foregroundStyle(Color.monitorTextMuted)
+      .lineLimit(1)
+      .padding(.top, 7)
   }
 }
 
