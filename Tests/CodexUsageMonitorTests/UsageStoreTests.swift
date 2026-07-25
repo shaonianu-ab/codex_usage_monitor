@@ -115,6 +115,40 @@ final class UsageStoreTests: XCTestCase {
     store.stop()
   }
 
+  func testNotifiesWhenWeeklyQuotaIncreasesWithoutUsingAResetCredit() async {
+    let notificationSender = RecordingQuotaResetNotificationSender()
+    let store = UsageStore(
+      authProvider: StubAuthProvider(session: authSession),
+      apiClient: SequencedAPIClient(results: [
+        result(weeklyRemainingPercent: 30, availableCount: 2),
+        result(weeklyRemainingPercent: 65, availableCount: 2),
+      ]),
+      notificationSender: notificationSender
+    )
+
+    await store.refresh()
+    await store.refresh()
+
+    XCTAssertEqual(notificationSender.sentNotificationCount, 1)
+  }
+
+  func testDoesNotNotifyWhenWeeklyQuotaIncreasesAfterUsingAResetCredit() async {
+    let notificationSender = RecordingQuotaResetNotificationSender()
+    let store = UsageStore(
+      authProvider: StubAuthProvider(session: authSession),
+      apiClient: SequencedAPIClient(results: [
+        result(weeklyRemainingPercent: 30, availableCount: 2),
+        result(weeklyRemainingPercent: 65, availableCount: 1),
+      ]),
+      notificationSender: notificationSender
+    )
+
+    await store.refresh()
+    await store.refresh()
+
+    XCTAssertEqual(notificationSender.sentNotificationCount, 0)
+  }
+
   private var authSession: AuthSession {
     AuthSession(
       accessToken: "header.eyJwbGFuX3R5cGUiOiJwbHVzIn0.signature",
@@ -130,6 +164,26 @@ final class UsageStoreTests: XCTestCase {
       weeklyWindow: UsageSnapshot.preview.weeklyWindow,
       credits: UsageSnapshot.preview.credits,
       availableCount: UsageSnapshot.preview.availableCount,
+      usageSucceeded: true,
+      creditsSucceeded: true,
+      warnings: []
+    )
+  }
+
+  private func result(
+    weeklyRemainingPercent: Double,
+    availableCount: Int
+  ) -> RemoteUsageResult {
+    RemoteUsageResult(
+      planType: "plus",
+      fiveHourWindow: nil,
+      weeklyWindow: RateLimitWindow(
+        usedPercent: 100 - weeklyRemainingPercent,
+        resetAt: nil,
+        windowSeconds: 604_800
+      ),
+      credits: [],
+      availableCount: availableCount,
       usageSucceeded: true,
       creditsSucceeded: true,
       warnings: []
@@ -183,5 +237,28 @@ private actor StubAPIClient: CodexUsageFetching {
 
   func count() -> Int {
     callCount
+  }
+}
+
+private actor SequencedAPIClient: CodexUsageFetching {
+  private var results: [RemoteUsageResult]
+
+  init(results: [RemoteUsageResult]) {
+    self.results = results
+  }
+
+  func fetch(auth: AuthSession) async -> RemoteUsageResult {
+    results.removeFirst()
+  }
+}
+
+@MainActor
+private final class RecordingQuotaResetNotificationSender: QuotaResetNotificationSending {
+  private(set) var sentNotificationCount = 0
+
+  func requestAuthorization() {}
+
+  func sendQuotaResetNotification() {
+    sentNotificationCount += 1
   }
 }

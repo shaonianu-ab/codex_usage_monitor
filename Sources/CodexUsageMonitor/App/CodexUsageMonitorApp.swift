@@ -40,7 +40,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     } else {
       let persistedSettings = SettingsStore()
       settings = persistedSettings
-      store = UsageStore(refreshInterval: persistedSettings.refreshInterval)
+      store = UsageStore(
+        refreshInterval: persistedSettings.refreshInterval,
+        notificationSender: QuotaResetNotificationService()
+      )
       launchAtLogin = LaunchAtLoginStore()
     }
     super.init()

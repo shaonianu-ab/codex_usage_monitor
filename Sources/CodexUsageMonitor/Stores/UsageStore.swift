@@ -13,16 +13,20 @@ final class UsageStore {
 
   private let authProvider: (any AuthSessionProviding)?
   private let apiClient: (any CodexUsageFetching)?
+  private let notificationSender: any QuotaResetNotificationSending
   private let nowProvider: () -> Date
   private let sleepProvider: @Sendable (TimeInterval) async throws -> Void
 
   private var isRunning = false
+  private var hasRequestedNotificationAuthorization = false
+  private var notificationAuthorizationTask: Task<Void, Never>?
   private var scheduledRefreshTask: Task<Void, Never>?
 
   init(
     authProvider: any AuthSessionProviding = AuthFileReader(),
     apiClient: any CodexUsageFetching = CodexAPIClient(),
     refreshInterval: TimeInterval = 15 * 60,
+    notificationSender: any QuotaResetNotificationSending = NoopQuotaResetNotificationSender(),
     now: @escaping () -> Date = { Date() },
     sleep: @escaping @Sendable (TimeInterval) async throws -> Void = { interval in
       try await Task.sleep(for: .seconds(interval))
@@ -30,6 +34,7 @@ final class UsageStore {
   ) {
     self.authProvider = authProvider
     self.apiClient = apiClient
+    self.notificationSender = notificationSender
     self.automaticRefreshInterval = max(0, refreshInterval)
     self.nowProvider = now
     self.sleepProvider = sleep
@@ -39,6 +44,7 @@ final class UsageStore {
     self.snapshot = snapshot
     self.authProvider = nil
     self.apiClient = nil
+    self.notificationSender = NoopQuotaResetNotificationSender()
     self.automaticRefreshInterval = 15 * 60
     self.nowProvider = { Date() }
     self.sleepProvider = { _ in }
@@ -47,6 +53,7 @@ final class UsageStore {
   func start() {
     guard authProvider != nil, !isRunning else { return }
     isRunning = true
+    requestNotificationAuthorizationIfNeeded()
     scheduledRefreshTask = Task { [weak self] in
       await self?.refresh()
     }
@@ -54,6 +61,8 @@ final class UsageStore {
 
   func stop() {
     isRunning = false
+    notificationAuthorizationTask?.cancel()
+    notificationAuthorizationTask = nil
     scheduledRefreshTask?.cancel()
     scheduledRefreshTask = nil
     nextRefreshAt = nil
@@ -86,15 +95,25 @@ final class UsageStore {
       let remote = await apiClient.fetch(auth: auth)
 
       let now = nowProvider()
-      snapshot = UsageSnapshot(
+      let refreshedSnapshot = UsageSnapshot(
         planType: remote.planType ?? localPlan ?? "unknown",
         fiveHourWindow: remote.fiveHourWindow,
         weeklyWindow: remote.weeklyWindow,
         usageSucceeded: remote.usageSucceeded,
+        creditsSucceeded: remote.creditsSucceeded,
         credits: remote.credits,
         availableCount: remote.availableCount,
         updatedAt: now
       )
+
+      let previousSnapshot = snapshot
+      snapshot = refreshedSnapshot
+      if shouldSendQuotaResetNotification(
+        previous: previousSnapshot,
+        current: refreshedSnapshot
+      ) {
+        notificationSender.sendQuotaResetNotification()
+      }
 
       message = remote.warnings.isEmpty ? nil : .remote(remote.warnings)
     } catch let error as AuthFileError {
@@ -107,6 +126,37 @@ final class UsageStore {
   private func recordRefreshCompletion(at date: Date) {
     lastRefreshAt = date
     scheduleNextRefresh(from: date)
+  }
+
+  private func requestNotificationAuthorizationIfNeeded() {
+    guard !hasRequestedNotificationAuthorization else { return }
+    hasRequestedNotificationAuthorization = true
+
+    notificationAuthorizationTask = Task { [notificationSender] in
+      await Task.yield()
+      guard !Task.isCancelled else { return }
+      notificationSender.requestAuthorization()
+    }
+  }
+
+  private func shouldSendQuotaResetNotification(
+    previous: UsageSnapshot?,
+    current: UsageSnapshot
+  ) -> Bool {
+    guard
+      let previous,
+      previous.usageSucceeded,
+      previous.creditsSucceeded,
+      current.usageSucceeded,
+      current.creditsSucceeded,
+      previous.availableCount <= current.availableCount,
+      let previousWeeklyWindow = previous.weeklyWindow,
+      let currentWeeklyWindow = current.weeklyWindow
+    else {
+      return false
+    }
+
+    return currentWeeklyWindow.remainingPercent > previousWeeklyWindow.remainingPercent
   }
 
   private func scheduleNextRefresh(from referenceDate: Date) {

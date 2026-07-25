@@ -35,6 +35,7 @@ struct UsageSnapshot: Sendable, Equatable {
   let fiveHourWindow: RateLimitWindow?
   let weeklyWindow: RateLimitWindow?
   let usageSucceeded: Bool
+  let creditsSucceeded: Bool
   let credits: [RateLimitCredit]
   let availableCount: Int
   let updatedAt: Date
@@ -101,6 +102,7 @@ struct UsageSnapshot: Sendable, Equatable {
         windowSeconds: 604_800
       ),
       usageSucceeded: true,
+      creditsSucceeded: true,
       credits: credits,
       availableCount: 2,
       updatedAt: date(2026, 6, 23, 0, 23)
