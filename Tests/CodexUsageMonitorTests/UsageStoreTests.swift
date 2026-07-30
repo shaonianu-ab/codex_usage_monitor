@@ -121,7 +121,7 @@ final class UsageStoreTests: XCTestCase {
       authProvider: StubAuthProvider(session: authSession),
       apiClient: SequencedAPIClient(results: [
         result(weeklyRemainingPercent: 30, availableCount: 2),
-        result(weeklyRemainingPercent: 65, availableCount: 2),
+        result(weeklyRemainingPercent: 32, availableCount: 2),
       ]),
       notificationSender: notificationSender
     )
@@ -130,6 +130,23 @@ final class UsageStoreTests: XCTestCase {
     await store.refresh()
 
     XCTAssertEqual(notificationSender.sentNotificationCount, 1)
+  }
+
+  func testDoesNotNotifyWhenWeeklyQuotaIncreaseIsBelowTwoPercentagePoints() async {
+    let notificationSender = RecordingQuotaResetNotificationSender()
+    let store = UsageStore(
+      authProvider: StubAuthProvider(session: authSession),
+      apiClient: SequencedAPIClient(results: [
+        result(weeklyRemainingPercent: 30, availableCount: 2),
+        result(weeklyRemainingPercent: 31.99, availableCount: 2),
+      ]),
+      notificationSender: notificationSender
+    )
+
+    await store.refresh()
+    await store.refresh()
+
+    XCTAssertEqual(notificationSender.sentNotificationCount, 0)
   }
 
   func testDoesNotNotifyWhenWeeklyQuotaIncreasesAfterUsingAResetCredit() async {

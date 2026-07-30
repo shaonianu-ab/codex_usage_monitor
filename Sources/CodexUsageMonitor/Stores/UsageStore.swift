@@ -4,6 +4,8 @@ import Observation
 @MainActor
 @Observable
 final class UsageStore {
+  private static let minimumWeeklyQuotaIncreaseForNotification = 2.0
+
   private(set) var snapshot: UsageSnapshot?
   private(set) var isRefreshing = false
   private(set) var message: UsageMessage?
@@ -156,7 +158,8 @@ final class UsageStore {
       return false
     }
 
-    return currentWeeklyWindow.remainingPercent > previousWeeklyWindow.remainingPercent
+    return currentWeeklyWindow.remainingPercent - previousWeeklyWindow.remainingPercent
+      >= Self.minimumWeeklyQuotaIncreaseForNotification
   }
 
   private func scheduleNextRefresh(from referenceDate: Date) {
